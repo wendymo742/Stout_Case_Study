@@ -1,0 +1,261 @@
+---
+title: 'Case Study #2'
+author: "Weiting Mo"
+date: "10/27/2021"
+output: html_document
+---
+```{r include = FALSE}
+knitr::opts_chunk$set(echo=FALSE, message = FALSE)
+```
+
+```{r}
+library(dplyr)
+library(stringr)
+library(gapminder)
+library(ggplot2)
+library(data.table)
+library(tidyr)
+library(gridExtra)
+my_data <- read.csv('casestudy.csv')
+```
+
+```{r}
+years<-split(my_data, my_data$year)
+data_2015 <- data.frame(years[1])
+data_2016 <- data.frame(years[2])
+data_2017 <- data.frame(years[3])
+```
+
+```{r results = 'hide'}
+head(my_data)
+head(data_2015)
+head(data_2016)
+head(data_2017)
+```
+
+### Total revenue for the current year
+```{r}
+total_revenue <- my_data %>% group_by(year = year) %>% summarise(total_revenue = sum(net_revenue))
+total_revenue
+```
+
+### Total customers current year and previous year
+```{r}
+total_customers <- my_data %>% group_by(year) %>% tally(name = "total_customers_current_year") %>% mutate(total_customer_previous_year = as.integer(c( 0,231294,204646)))
+total_customers
+```
+
+### New Customers
+#### New Customers 2016
+```{r}
+new_customer_2016 <- data_2016$X2016.customer_email[!(str_trim(data_2016$X2016.customer_email) %in% str_trim(data_2015$X2015.customer_email))]
+new_customer_2017 <- data_2017$X2017.customer_email[!(str_trim(data_2017$X2017.customer_email) %in% str_trim(data_2016$X2016.customer_email) |str_trim(data_2017$X2017.customer_email) %in% str_trim(data_2015$X2015.customer_email) )]
+
+head(data.frame(new_customer_2016))
+tail(data.frame(new_customer_2016))
+```
+
+#### New customers 2017
+```{r}
+head(data.frame(new_customer_2017))
+tail(data.frame(new_customer_2017))
+```
+
+### Existing customers
+#### Existing customers 2016
+```{r}
+existing_customer_2016 <- data_2016$X2016.customer_email[(str_trim(data_2016$X2016.customer_email) %in% str_trim(data_2015$X2015.customer_email))]
+existing_customer_2017 <- data_2017$X2017.customer_email[(str_trim(data_2017$X2017.customer_email) %in% str_trim(data_2016$X2016.customer_email))]
+head(data.frame(existing_customer_2016))
+tail(data.frame(existing_customer_2016))
+```
+#### Existing customers 2017
+```{r}
+head(data.frame(existing_customer_2017))
+tail(data.frame(existing_customer_2017))
+```
+
+### Lost customers
+#### Lost cutomers 2016
+```{r}
+lost_customer_2016 <- data_2015$X2015.customer_email[!(str_trim(data_2015$X2015.customer_email) %in% str_trim(data_2016$X2016.customer_email))]
+lost_customer_2017 <- data_2016$X2016.customer_email[!(str_trim(data_2016$X2016.customer_email) %in% str_trim(data_2017$X2017.customer_email))]
+head(data.frame(lost_customer_2016))
+tail(data.frame(lost_customer_2016))
+```
+#### Lost customers 2017
+```{r}
+head(data.frame(lost_customer_2017))
+tail(data.frame(lost_customer_2016))
+```
+
+### New Customers Revenue
+```{r}
+new_customer_revenue_2015 <- data_2015 %>% 
+  summarise(new_customer_revenue = sum(X2015.net_revenue))
+
+new_customer_revenue_2016 <- data_2016 %>% 
+  filter(str_trim(X2016.customer_email) %in% str_trim(new_customer_2016))%>% 
+  summarise(new_customer_revenue = sum(X2016.net_revenue))
+
+new_customer_revenue_2017 <- data_2017 %>% 
+  filter(str_trim(X2017.customer_email) %in% str_trim(new_customer_2017))%>% 
+  summarise(new_customer_revenue = sum(X2017.net_revenue))
+
+new_customer_revenue <- rbind(new_customer_revenue_2015,new_customer_revenue_2016, new_customer_revenue_2017)
+year <- c("2015", "2016", "2017")
+new_customer_revenue <- cbind( year = as.integer(year),new_customer_revenue)
+
+
+new_customer_revenue
+```
+
+### Existing Customer Growth
+```{r}
+existing_customer_revenue_2016_current <- data_2016 %>% 
+  filter(str_trim(X2016.customer_email) %in% str_trim(existing_customer_2016))%>% 
+  summarise(existing_customer_revenue_current_year = sum(X2016.net_revenue))
+
+existing_customer_revenue_2016_prior <- data_2015 %>% 
+  filter(str_trim(X2015.customer_email) %in% str_trim(existing_customer_2016))%>% 
+  summarise(existing_customer_revenue_prior_year = sum(X2015.net_revenue))
+
+existing_customer_revenue_2017_current <- data_2017 %>% 
+  filter(str_trim(X2017.customer_email) %in% str_trim(existing_customer_2017)) %>% 
+  summarise(existing_customer_revenue_current_year = sum(X2017.net_revenue))
+
+existing_customer_revenue_2017_prior <- data_2016 %>% 
+  filter(str_trim(X2016.customer_email) %in% str_trim(existing_customer_2017))%>% 
+  summarise(existing_customer_revenue_prior_year = sum(X2016.net_revenue))
+```
+
+```{r}
+existing_customer_revenue_current <- rbind(existing_customer_revenue_2016_current,existing_customer_revenue_2017_current)
+existing_customer_revenue_prior <- rbind(existing_customer_revenue_2016_prior,existing_customer_revenue_2017_prior)
+
+year <- c("2016", "2017")
+existing_customer_revenue_current <- cbind( year = as.integer(year),existing_customer_revenue_current)
+
+year <- c("2016", "2017")
+existing_customer_revenue_prior <- cbind( year =as.integer( year),existing_customer_revenue_prior)
+
+existing_customer_revenue <- left_join(existing_customer_revenue_prior, existing_customer_revenue_current, by = "year")
+existing_customer_revenue <- existing_customer_revenue %>% mutate(existing_customer_growth = existing_customer_revenue_current_year - existing_customer_revenue_prior_year)
+
+existing_customer_revenue
+```
+
+### Revenue lost from attrition
+```{r}
+revenue_lost_2016 <- data_2015 %>% 
+  filter(str_trim(X2015.customer_email) %in% str_trim(lost_customer_2016))%>%
+  summarise(lost_revenue = sum(X2015.net_revenue))
+
+revenue_lost_2017 <- data_2016 %>% 
+  filter(str_trim(X2016.customer_email) %in% str_trim(lost_customer_2017))%>%
+  summarise(lost_revenue = sum(X2016.net_revenue))
+
+revenue_lost <- rbind(revenue_lost_2016, revenue_lost_2017)
+
+year <- c( "2016", "2017")
+revenue_lost <- cbind( year = as.integer(year),revenue_lost)
+revenue_lost
+```
+### Data Visualization
+
+#### Revenue Distribution
+```{r}
+revenue_plot <- right_join(existing_customer_revenue_current, new_customer_revenue, by = "year") 
+#revenue_plot <- left_join(revenue_plot, total_revenue, by = "year")
+revenue_plot <- revenue_plot %>% replace_na(list(existing_customer_revenue_current_year= 0))
+
+revenue_plot <- melt(setDT(revenue_plot), id.var = "year", variable.name  ="revenue_type", value.name = "revenue")
+revenue_plot <- arrange(revenue_plot, year) 
+#revenue_plot <- ddply(revenue_plot, "year", transform, total_rev = cumsum(revenue))
+
+```
+
+```{r}
+ggplot(data = revenue_plot, aes(x = year, y = revenue, fill = revenue_type))+
+  geom_bar(stat ="identity")+
+  #geom_text(aes(y = total_rev, label = revenue), vjust = 1.6, color = "white", size = 3.5)+
+  labs(title = "Revenue Distribution by Customer Type", subtitle = "How much do existing customers and new customers contribute respectively?",fill = "Customer Type")+
+  scale_fill_discrete(labels = c("Existing Customer", "New Customer"))+
+  theme_minimal()
+```
+
+#### Expected Revenue
+```{r}
+expected_revenue <- left_join(total_revenue, revenue_lost, by = "year")
+expected_revenue <- expected_revenue %>% replace_na(list(lost_revenue= 0))
+
+expected_revenue_16 <- subset(expected_revenue,year == 2016)
+expected_revenue_17 <- subset(expected_revenue,year == 2017)
+
+expected_revenue_16 <- melt(setDT(expected_revenue_16), id.var = "year", variable.name  ="revenue_type", value.name = "revenue")
+expected_revenue_17 <- melt(setDT(expected_revenue_17), id.var = "year", variable.name  ="revenue_type", value.name = "revenue")
+
+expected_revenue_17 <- expected_revenue_17 %>% 
+  arrange(desc(revenue_type)) %>% 
+  mutate(prop  = revenue / sum(expected_revenue_17$revenue) * 100)%>%
+  mutate(ypos = cumsum(prop) - 0.5*prop)
+
+expected_revenue_16 <- expected_revenue_16 %>% 
+  arrange(desc(revenue_type)) %>% 
+  mutate(prop  = revenue / sum(expected_revenue_17$revenue) * 100)%>%
+  mutate(ypos = cumsum(prop) - 0.5*prop)
+```
+
+```{r}
+ex_2016 <- ggplot(expected_revenue_16, aes (x = "", y = prop, fill = revenue_type))+
+  geom_bar(stat = "identity", width = 1)+
+  coord_polar("y", start = 0)+
+  labs(title = "Expected Revenue 2016", subtitle = "If we do not lost our existing customers",fill = "revenue type")+
+  geom_text(aes(y = ypos, label = round(revenue,digit = 3)), color = "white", size=3) +
+  scale_fill_discrete(labels = c("Total revenue", "Lost revenue"))+
+  theme_void()
+
+ex_2017 <- ggplot(expected_revenue_17, aes (x = "", y = prop, fill = revenue_type))+
+  geom_bar(stat = "identity", width = 1)+
+  coord_polar("y", start = 0)+
+  labs(title = "Expected Revenue 2017", subtitle = "If we do not lost our existing customers",fill = "revenue type")+
+  geom_text(aes(y = ypos, label = round(revenue,digit = 3)), color = "white", size=3) +
+  scale_fill_discrete(labels = c("Total revenue", "Lost revenue"))+
+  theme_void()
+grid.arrange(ex_2016, ex_2017,ncol=2)
+
+```
+
+#### Customer Growth
+```{r}
+num_customer_2015 <- nrow(data_2015)
+num_customer_2016 <- nrow(data_2016)
+num_customer_2017 <- nrow(data_2017)
+
+num_new_customer_2015 <- nrow(data_2015)
+num_new_customer_2016 <- nrow(data.frame(new_customer_2016))
+num_new_customer_2017 <- nrow(data.frame(new_customer_2017))
+
+num_existing_customer_2015 <- 0
+num_existing_customer_2016 <- nrow(data.frame(existing_customer_2016))
+num_existing_customer_2017 <- nrow(data.frame(existing_customer_2017))
+
+num_lost_customer_2015 <- 0
+num_lost_customer_2016 <- nrow(data.frame(lost_customer_2016))
+num_lost_customer_2017 <- nrow(data.frame(lost_customer_2017))
+
+num_customer <- data.frame(year=rep(c("2015", "2016", "2017"), each=4),
+                           type = rep(c("total","new","existing","lost"), 3),
+                           num = c(num_customer_2015, num_new_customer_2015, num_existing_customer_2015, num_lost_customer_2015,num_customer_2016, num_new_customer_2016, num_existing_customer_2016, num_lost_customer_2016,num_customer_2017, num_new_customer_2017, num_existing_customer_2017, num_lost_customer_2017))
+            
+```
+```{r}
+ggplot(data=num_customer, aes(x=year, y=num, group=type)) +
+  geom_line(aes(color = type))+
+  geom_point(aes(color = type))+
+  labs(title = "Number of Customers by Types",fill = "Customer Type",y = "Counts", x = "Year")+
+  theme_minimal()
+```
+
+
+### As we can see from the above graphs, the new customers contributes to the revenue a lot more than the existing customers. One major reason is that we lost a lot of customers each year. The pie charts show that, if we are able to keep the old customers, then we are able to increase the revenue by 34% to 44%. While the good news is, at least for the year of 2017, the number of lost customers decreases compare to the year of 2016.
